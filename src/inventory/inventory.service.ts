@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Inventory, InventoryDocument } from './schemas/inventory.schema';
 import { ProductsService } from '../products/products.service';
 import { CreateInboundDto } from './dto/create-inbound.dto';
@@ -25,12 +25,15 @@ export class InventoryService {
     // 1. 유효한 상품인지 검증
     await this.productsService.findOne(productId);
 
+    // DTO의 string ID를 ObjectId로 변환
+    const productObjectId = new Types.ObjectId(productId);
+
     // 2. 재고 도큐먼트 조회 (없으면 생성)
-    let inventory = await this.inventoryModel.findOne({ product: productId });
+    let inventory = await this.inventoryModel.findOne({ product: productObjectId });
 
     if (!inventory) {
       inventory = new this.inventoryModel({
-        product: productId,
+        product: productObjectId,
         batches: [],
         totalQuantity: 0,
       });
@@ -81,7 +84,8 @@ export class InventoryService {
     }
 
     // 2. 재고 조회 및 수량 검증
-    const inventory = await this.inventoryModel.findOne({ product: product._id });
+    // [수정] Product 타입에 _id가 명시되지 않아 발생하는 TS 에러를 as any로 해결
+    const inventory = await this.inventoryModel.findOne({ product: (product as any)._id });
 
     if (!inventory || inventory.totalQuantity < quantity) {
       throw new BadRequestException('Not enough stock');
@@ -117,7 +121,10 @@ export class InventoryService {
   async sync(dto: SyncInventoryDto): Promise<Inventory> {
     const { productId, realBatches } = dto;
 
-    const inventory = await this.inventoryModel.findOne({ product: productId });
+    // DTO의 string ID를 ObjectId로 변환
+    const productObjectId = new Types.ObjectId(productId);
+
+    const inventory = await this.inventoryModel.findOne({ product: productObjectId });
     if (!inventory) {
       throw new NotFoundException('Inventory not found');
     }

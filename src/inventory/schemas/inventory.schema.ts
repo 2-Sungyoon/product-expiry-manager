@@ -19,7 +19,7 @@ export type InventoryDocument = Inventory & Document;
 export class Inventory {
   // 어떤 상품의 재고인지 참조 (FK)
   @Prop({ type: Types.ObjectId, ref: 'Product', required: true, unique: true })
-  product: Product;
+  product: Types.ObjectId;
 
   // 가상 배치 배열 (유통기한별 재고 목록)
   // RDBMS의 조인 비용을 없애고, 한 번의 조회로 재고 분포를 파악하기 위해 내장
