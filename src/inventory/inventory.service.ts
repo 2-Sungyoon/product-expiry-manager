@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { Inventory, InventoryDocument } from './schemas/inventory.schema';
 import { ProductsService } from '../products/products.service';
 import { CreateInboundDto } from './dto/create-inbound.dto';
+import { CreateSalesDto } from './dto/create-sales.dto';
 
 @Injectable()
 export class InventoryService {
