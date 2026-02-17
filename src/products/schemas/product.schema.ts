@@ -14,7 +14,7 @@ export class Product {
   @Prop({ required: true })
   price: number;
 
-  // 바코드는 상품의 고유 식별자이므로 유니크 인덱스를 걸어 중복 등록을 차단함
+  // 바코드는 상품의 고유 식별자이므로 유니크 인덱스를 걸어 중복 등록을 차단하고 조회 성능을 최적화함
   @Prop({ required: true, unique: true })
   barcode: string;
 

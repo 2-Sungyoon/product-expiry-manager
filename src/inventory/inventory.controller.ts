@@ -1,4 +1,4 @@
-import { Body, Controller, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Query } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { CreateInboundDto } from './dto/create-inbound.dto';
 import { CreateSalesDto } from './dto/create-sales.dto';
@@ -24,5 +24,12 @@ export class InventoryController {
   @Patch('sync')
   async sync(@Body() dto: SyncInventoryDto) {
     return this.inventoryService.sync(dto);
+  }
+
+  // 유통기한 임박 상품 조회 API
+  // 예: GET /inventory/expiring?days=3 (기본값 3일)
+  @Get('expiring')
+  async findExpiring(@Query('days') days: number = 3) {
+    return this.inventoryService.findExpiring(Number(days));
   }
 }

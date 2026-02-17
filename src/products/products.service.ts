@@ -39,4 +39,13 @@ export class ProductsService {
     }
     return product;
   }
+
+  // 바코드로 단일 상품 조회 (O(1) 성능 최적화용)
+  async findByBarcode(barcode: string): Promise<ProductDocument> {
+    const product = await this.productModel.findOne({ barcode }).exec();
+    if (!product) {
+      throw new NotFoundException(`Product with barcode ${barcode} not found`);
+    }
+    return product;
+  }
 }
