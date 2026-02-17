@@ -69,22 +69,16 @@ export class InventoryService {
   /**
    * [판매 처리 - 워터폴 차감 알고리즘]
    * 요청된 수량만큼 유통기한이 가장 임박한(오래된) 배치부터 순차적으로 차감
-   * POS는 바코드만 보내므로, 바코드로 상품을 찾고 -> 재고를 찾고 -> 차감을 수행
+   * 성능 최적화: findAll() 대신 findByBarcode()를 사용하여 DB 부하를 최소화함
    */
   async sales(dto: CreateSalesDto): Promise<Inventory> {
     const { barcode, quantity } = dto;
 
-    // 1. 바코드로 상품 ID 찾기
-    // (ProductsService에 findByBarcode가 없으므로 전체 조회 후 필터링)
-    const products = await this.productsService.findAll();
-    const product = products.find((p) => p.barcode === barcode);
-
-    if (!product) {
-      throw new NotFoundException(`Product with barcode ${barcode} not found`);
-    }
+    // 1. 바코드로 상품 ID 찾기 (O(1) 성능 최적화 적용)
+    const product = await this.productsService.findByBarcode(barcode);
 
     // 2. 재고 조회 및 수량 검증
-    // [수정] Product 타입에 _id가 명시되지 않아 발생하는 TS 에러를 as any로 해결
+    // Product 객체의 _id를 안전하게 ObjectId로 사용하여 조회
     const inventory = await this.inventoryModel.findOne({ product: (product as any)._id });
 
     if (!inventory || inventory.totalQuantity < quantity) {
@@ -142,5 +136,49 @@ export class InventoryService {
     inventory.totalQuantity = inventory.batches.reduce((sum, b) => sum + b.quantity, 0);
 
     return inventory.save();
+  }
+
+  /**
+   * [모니터링] 유통기한 임박 상품 조회
+   * 기준일(오늘)로부터 지정된 일수(days) 이내에 만료되는 배치가 있는 상품들을 조회
+   * 리스크 관리를 위해 잔여 유통기한이 짧은 상품을 선별하여 제공
+   */
+  async findExpiring(days: number): Promise<any[]> {
+    const today = new Date();
+    const targetDate = new Date();
+    targetDate.setDate(today.getDate() + days);
+
+    // MongoDB Aggregation Pipeline을 사용하여 효율적으로 필터링
+    return this.inventoryModel.aggregate([
+      { $unwind: '$batches' }, // 배치를 낱개 도큐먼트로 분해
+      {
+        $match: {
+          'batches.expiryDate': {
+            $gte: today, // 오늘 이후 (이미 만료된 건 제외할 경우)
+            $lte: targetDate, // N일 후 이전
+          },
+          'batches.quantity': { $gt: 0 }, // 재고가 있는 것만
+        },
+      },
+      {
+        $lookup: {
+          // 상품 정보 조인 (Join)
+          from: 'products',
+          localField: 'product',
+          foreignField: '_id',
+          as: 'productInfo',
+        },
+      },
+      { $unwind: '$productInfo' },
+      {
+        $project: {
+          // 클라이언트에 필요한 핵심 정보만 선택적으로 반환
+          productName: '$productInfo.name',
+          barcode: '$productInfo.barcode',
+          expiryDate: '$batches.expiryDate',
+          quantity: '$batches.quantity',
+        },
+      },
+    ]);
   }
 }
